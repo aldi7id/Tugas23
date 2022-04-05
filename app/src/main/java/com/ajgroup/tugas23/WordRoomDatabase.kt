@@ -4,6 +4,9 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.sqlite.db.SupportSQLiteDatabase
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 // Annotates class to be a Room Database with a table (entity) of the Word class
 @Database(entities = arrayOf(Word::class), version = 1, exportSchema = false)
@@ -16,8 +19,36 @@ public abstract class WordRoomDatabase : RoomDatabase() {
         // same time.
         @Volatile
         private var INSTANCE: WordRoomDatabase? = null
+        private class WordDatabaseCallback(
+            private val scope: CoroutineScope
+        ) : RoomDatabase.Callback() {
 
-        fun getDatabase(context: Context): WordRoomDatabase {
+            override fun onCreate(db: SupportSQLiteDatabase) {
+                super.onCreate(db)
+                INSTANCE?.let { database ->
+                    scope.launch {
+                        populateDatabase(database.wordDao())
+                    }
+                }
+            }
+
+            suspend fun populateDatabase(wordDao: WordDao) {
+                // Delete all content here.
+                wordDao.deleteAll()
+
+                // Add sample words.
+                var word = Word("Hello")
+                wordDao.insert(word)
+                word = Word("World!")
+                wordDao.insert(word)
+
+                // TODO: Add your own words!
+            }
+        }
+        fun getDatabase(
+            context: Context,
+            scope: CoroutineScope
+        ): WordRoomDatabase {
             // if the INSTANCE is not null, then return it,
             // if it is, then create the database
             return INSTANCE ?: synchronized(this) {
@@ -25,11 +56,14 @@ public abstract class WordRoomDatabase : RoomDatabase() {
                     context.applicationContext,
                     WordRoomDatabase::class.java,
                     "word_database"
-                ).build()
+                )
+                    .addCallback(WordDatabaseCallback(scope))
+                    .build()
                 INSTANCE = instance
                 // return instance
                 instance
             }
         }
     }
+
 }
