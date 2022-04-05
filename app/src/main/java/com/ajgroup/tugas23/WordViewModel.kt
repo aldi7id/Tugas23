@@ -1,7 +1,6 @@
 package com.ajgroup.tugas23
 
 import androidx.lifecycle.*
-import kotlinx.coroutines.launch
 
 class WordViewModel(private val repository: WordRepository) : ViewModel() {
 
